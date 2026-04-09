@@ -3,18 +3,29 @@ package com.jlouceiro;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
+import io.quarkus.cache.Cache;
+import io.quarkus.cache.CacheName;
+import io.quarkus.cache.CaffeineCache;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 public class LabseqService {
 
-    private static Map<Integer, BigInteger> cache = new HashMap<>();
-    static {
-        cache.put(0, BigInteger.ZERO);
-        cache.put(1, BigInteger.ONE);
-        cache.put(2, BigInteger.ZERO);
-        cache.put(3, BigInteger.ONE);
+    @Inject
+    @CacheName("libseq-cache")
+    Cache cache;
+
+    @PostConstruct
+    public void initialize() {
+        cache.as(CaffeineCache.class).put(0, CompletableFuture.completedFuture(BigInteger.ZERO));
+        cache.as(CaffeineCache.class).put(1, CompletableFuture.completedFuture(BigInteger.ONE));
+        cache.as(CaffeineCache.class).put(2, CompletableFuture.completedFuture(BigInteger.ZERO));
+        cache.as(CaffeineCache.class).put(3, CompletableFuture.completedFuture(BigInteger.ONE));
     }
 
     public BigInteger getLabseqResult(int n) {
@@ -22,18 +33,25 @@ public class LabseqService {
             throw new LabseqException("Input must be a non-negative integer.");
         }
 
-        if (cache.containsKey(n)) {
-            return cache.get(n);
-        }
-
         for (int i = 4; i <= n; i++) {
-            cache.put(i, calcCurrentIndex(i));
+            CompletableFuture<BigInteger> futureA = cache.as(CaffeineCache.class).getIfPresent(i - 4);
+            CompletableFuture<BigInteger> futureB = cache.as(CaffeineCache.class).getIfPresent(i - 3);
+
+            BigInteger sum = futureA.resultNow().add(futureB.resultNow());
+
+            cache.as(CaffeineCache.class).put(i, CompletableFuture.completedFuture(sum));
         }
-        return calcCurrentIndex(n);
+
+        return getIfPresent(n);
+
     }
 
-    private BigInteger calcCurrentIndex(int i) {
-        return cache.get(i - 4).add(cache.get(i - 3));
+    private BigInteger getIfPresent(Object key) {
+        CompletableFuture<BigInteger> future = cache.as(CaffeineCache.class).getIfPresent(key);
+        return future.resultNow();
     }
 
+    private void putInCache(int key, BigInteger value) {
+        cache.as(CaffeineCache.class).put(key, CompletableFuture.completedFuture(BigInteger.ZERO));
+    }
 }
