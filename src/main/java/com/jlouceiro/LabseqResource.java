@@ -13,7 +13,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 @Path("/labseq")
-@Tag(name = "Labseq Resource", description = "Returns the nth number of the Labseq Sequence, defined as follows:")
+@Tag(name = "Labseq Resource", description = "Returns the nth number of the Labseq Sequence.")
 @APIResponses({
         @APIResponse(responseCode = "200", description = "Value of the calculated Labseq Sequence at the specified index."),
         @APIResponse(responseCode = "400", description = "Invalid index. The number passed must always be positive."),
